@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import StockTicker from "./StockTicker";
-import StockChart from "./StockChart";
 
 interface Stock {
   name: string;
@@ -258,7 +257,7 @@ function Dashboard() {
         </div>
 
         {/* View monthly data button */}
-        <Link to="/monthly">
+        <Link to="/stockChart">
           <button>View Monthly Data</button>
         </Link>
 

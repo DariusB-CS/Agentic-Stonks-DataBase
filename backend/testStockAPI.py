@@ -5,26 +5,30 @@ import uuid
 from sqlalchemy import create_engine
 import bs4 as bs
 from flask import Flask, request, render_template, url_for, redirect, session
-import bcrypt
 from supabase import create_client, Client
 import os 
 from dotenv import load_dotenv, dotenv_values
 import uuid
 load_dotenv()
 
+# Get the S&P 500 stock information table from the wikipedia website
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15 Ddg/18.6'}
 resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies', headers=headers)
 soup = bs.BeautifulSoup(resp.text, 'lxml')
 table = soup.find('table')
 
+# Get all the names in the table
 tickers = []
 for row in table.find_all('tr')[1:]:
     ticker = row.find_all('td')[0].text
     tickers.append(ticker)
 tickers = [s.replace('\n', '') for s in tickers]
 
+# Get all the stock information using the yfinance apo
 data = yf.download(tickers, period='1d', auto_adjust=False)
 print(data.head())
+
+# Format all the information
 df = data.stack().reset_index().rename(index=str, columns={"level_1": "Ticker"}).sort_values(['Ticker'])
 df = df.drop("Date", axis=1)
 df = df.dropna()
@@ -55,6 +59,7 @@ df["price"] = df["price"].round(2)
 df["change_in_price"] = df["change_in_price"].round(2)
 df["volume"] = df["volume"].astype(int) # bigint needs whole numbers
 
+# Get the url and key from the .env file to access the Supabase schema
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 
@@ -124,6 +129,7 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        # Get the password and email
         if request.is_json:
             data = request.get_json()
             email = data.get("username") or data.get("email")
@@ -133,7 +139,7 @@ def login():
             password = request.form.get("password")
 
         print(f"Attempting to login: {email}")
-
+        # Check if the email password are in the schema table
         result = (
             supabase.table("users")
             .select("*")
@@ -155,17 +161,18 @@ def login():
 
 
 @app.route("/api/stocks")
-def get_stocks():
+def get_stocks(): # Give all the stock data to the frontend
     response = supabase.table("stocks").select("*").execute()
     return {"stocks": response.data}, 200
 
 @app.route("/api/add", methods=["GET", "POST"])
 def add_stocks():
     email = session.get('username')
-    print(email)
     if request.method == "POST":
+        # Get the user choice from the front end
         data = request.get_json()
         ticker = data.get("name")
+        # Check if the user already chose that stock
         result = (
             supabase.table("tracked_stocks")
             .select("*")
@@ -174,7 +181,9 @@ def add_stocks():
         )
         if result.data:
             return {"Failure": False}, 401
+        # If the stock has not already been chosen then add it to the table
         else:
+            # Get the key from the user and stocks table
             userTable = (
                 supabase.table("users")
                 .select("id")
@@ -189,7 +198,7 @@ def add_stocks():
            )
             userid = userTable.data[0]['id']
             stockid = stockTable.data[0]['id']
-            print(type(userid))
+            # Insert the information into the tracked stocks table
             result = supabase.table("tracked_stocks").insert({
                 "id": str(uuid.uuid4()),
                 "user_id": userid,
@@ -223,11 +232,16 @@ def userStocks():
     temp = yf.download(tickers, period='1mo', auto_adjust=False)
     temp = temp.drop("Open", axis=1)
     temp = temp.drop("Volume", axis=1)
+    temp = temp.drop("Low", axis=1)
+    temp = temp.drop("High", axis=1)
+    temp = temp.drop("Adj Close", axis=1)
     temp = temp.dropna()
     temp = temp.rename(columns={
-    "Ticker":    "name",
+        "Date": "history",
+    "Ticker":    "ticker",
     "Close":     "price",
     })
+    print(temp)
     return {"stocks": temp.to_json()}, 200
 
 @app.route("/logout")
@@ -238,49 +252,4 @@ def logout():
 if __name__ == "__main__":
     app.run(debug=True)
     
-    # Build stock table with buttons
-#html_table = bs.BeautifulSoup(df.to_html(classes='data'), 'html.parser')
-#    rows = html_table.find_all('tr')
-#    first = True
-#    for row in rows:
-#        if first:
-#            tag = html_table.new_tag("td")
-#            tag.string = "Buttons"
-#            row.append(tag)
-#            first = False
-#        else:
-#            first_tag = html_table.new_tag("button", type="button")
-#            first_tag.string = "PRESS ME!"
-#            tag = html_table.new_tag('td')
-#            tag.append(first_tag)
-#            row.append(tag)
-#    return render_template("dashboard.html", username=name, tables=[html_table], titles=df.columns.values)
-#@app.route("/dashboard", methods=["GET", "POST"])
-#def dashboard():
-#    name = session.get('username')
-#
-#    
-#
-#    # Get user's chosen stocks
-#    response = (supabase.table("chosen")
-#        .select("*")
-#        .execute()
-#    )
-#    user_options = pd.DataFrame(response.data)
-#    actual_user = user_options.loc[user_options['email'] == name]
 
-#    if request.method == "POST":
-#        stock = request.form.get("stock")
-#        condition = (df['name'] == stock)
-#        sCondition = (actual_user['ticker'] == stock)
-#        if df[condition].any(axis=None) and not(actual_user[sCondition].any(axis=None)):
-#            response = (
-#                supabase.table("chosen")
-#                .upsert({"email": name, "ticker": stock}, ignore_duplicates=True)
-#                .execute()
-#            )
-#
-  
-#    temp = df[['name','price','change_in_price','volume','market_cap','p_to_e_ratio']]
-
-#    return {"stocks": temp.to_json()}, 200

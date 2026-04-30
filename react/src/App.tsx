@@ -5,6 +5,7 @@ import StockTicker from "./components/StockTicker";
 import Banner from "./components/Banner";
 import "./App.css";
 import MonthlyStockPage from "./components/MonthlyStockPage";
+import StockChart from "./components/StockChart";
 
 function App() {
   return (
@@ -39,7 +40,7 @@ function App() {
 
         {/* Dashboard after login */}
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/monthly" element={<MonthlyStockPage />} />
+        <Route path="/stockChart" element={<StockChart />} />
       </Routes>
     </BrowserRouter>
   );
