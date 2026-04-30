@@ -26,13 +26,13 @@ tickers = [s.replace('\n', '') for s in tickers]
 
 # Get all the stock information using the yfinance apo
 data = yf.download(tickers, period='1d', auto_adjust=False)
-print(data.head())
+
 
 # Format all the information
 df = data.stack().reset_index().rename(index=str, columns={"level_1": "Ticker"}).sort_values(['Ticker'])
 df = df.drop("Date", axis=1)
 df = df.dropna()
-print(df.head())
+
 
 # ── Rename columns to match Supabase schema ──────────────────────────────────
 df = df.rename(columns={
@@ -51,7 +51,7 @@ df["p_to_e_ratio"] = None
 
 # Keep only columns Supabase expects (drop open since it's not in schema)
 df = df[["name", "price", "change_in_price", "market_cap", "volume", "p_to_e_ratio"]]
-print(df.head())
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Round numeric columns to match Supabase types
@@ -71,7 +71,7 @@ response = (
     .upsert(df.to_dict('records'), on_conflict="name",)
     .execute()
 )
-print("Stocks uploaded successfully!")
+
 
 # Get users from Supabase
 response = (supabase.table("users")
@@ -95,7 +95,7 @@ def register():
             email = request.form.get("username") or request.form.get("email")
             password = request.form.get("password")
 
-        print(f"Attempting to register: {email}")  # Debug
+       
 
         if not email or not password:
             return {"error": "Email and password required"}, 400
@@ -108,7 +108,7 @@ def register():
             .execute()
         )
 
-        print(f"Existing query result: {existing.data}")  # Debug
+        
 
         if existing.data:  # Username already exists
             return {"error": "Email already taken!"}, 409
@@ -120,8 +120,7 @@ def register():
             "password": password
         }).execute()
 
-        print(f"Insert result: {result.data}")  # Debug
-
+        
         return {"success": True}, 200
 
     return render_template("sign_up.html")
@@ -138,7 +137,7 @@ def login():
             email = request.form.get("username") or request.form.get("email")
             password = request.form.get("password")
 
-        print(f"Attempting to login: {email}")
+       
         # Check if the email password are in the schema table
         result = (
             supabase.table("users")
@@ -148,7 +147,7 @@ def login():
             .execute()
         )
 
-        print(f"Login result: {result.data}")
+        
 
         if result.data:
             session['username'] = email
