@@ -1,0 +1,9 @@
+/DS_Store
+react-frontend/
+myenv/
+backend/sp500_stocks.numbers
+backend/sp500_stocks.csv
+testing_supabase/
+/sp500_stocks.csv
+/stock_schema.sql
+supabase/

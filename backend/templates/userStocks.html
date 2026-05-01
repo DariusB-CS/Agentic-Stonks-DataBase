@@ -1,0 +1,29 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        h1 { color: green; }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/logout">Logout</a></li>
+            <li><a href="/dashboard">Go back to dashboard</a></li>
+        </ul>
+    </nav>
+    <h1>You are logged in as {{ username }}!</h1>
+
+    
+    {% for table in tables %}
+   
+            {{titles[loop.index]}}
+            {{ table|safe }}
+           
+    {% endfor %}
+
+    
+</body>
+</html>
