@@ -11,135 +11,13 @@ interface Stock {
   p_to_e_ratio: number | null;
 }
 
-const mockStocks: Stock[] = [
-  {
-    name: "AAPL",
-    price: 260.48,
-    change_in_price: 0.5,
-    volume: 31259500,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "TSLA",
-    price: 245.1,
-    change_in_price: -5.4,
-    volume: 8200000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "MSFT",
-    price: 415.8,
-    change_in_price: -8.98,
-    volume: 5100000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "NVDA",
-    price: 177.19,
-    change_in_price: -7.7,
-    volume: 9800000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "NFLX",
-    price: 96.24,
-    change_in_price: 11.65,
-    volume: 4300000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "SOFI",
-    price: 17.76,
-    change_in_price: -1.34,
-    volume: 2100000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "MARA",
-    price: 8.94,
-    change_in_price: 0.49,
-    volume: 1500000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "GOOGL",
-    price: 175.32,
-    change_in_price: 2.1,
-    volume: 7600000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "AMZN",
-    price: 198.45,
-    change_in_price: -3.2,
-    volume: 6400000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "META",
-    price: 512.3,
-    change_in_price: 8.75,
-    volume: 4900000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "AMD",
-    price: 142.67,
-    change_in_price: -4.33,
-    volume: 3800000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "PYPL",
-    price: 68.9,
-    change_in_price: 1.2,
-    volume: 2200000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "INTC",
-    price: 21.45,
-    change_in_price: -0.85,
-    volume: 5100000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "NU",
-    price: 14.98,
-    change_in_price: -0.08,
-    volume: 1800000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-  {
-    name: "PSKY",
-    price: 13.51,
-    change_in_price: 2.33,
-    volume: 900000,
-    market_cap: null,
-    p_to_e_ratio: null,
-  },
-];
-
 function Dashboard() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [search, setSearch] = useState("");
   const [filtered, setFiltered] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [following, setFollowing] = useState<Set<string>>(new Set());
+  const [followMsg, setFollowMsg] = useState("");
 
   useEffect(() => {
     fetch("/api/stocks")
@@ -165,9 +43,8 @@ function Dashboard() {
     window.location.href = "/";
   };
 
-  const sendStock = async (name: String) => {
-    setError("");
-
+  const sendStock = async (name: string) => {
+    setFollowMsg("");
     try {
       const res = await fetch("/api/add", {
         method: "POST",
@@ -175,15 +52,17 @@ function Dashboard() {
         body: JSON.stringify({ name }),
       });
 
-      const data = await res.json();
-
       if (res.ok) {
+        setFollowing((prev) => new Set([...prev, name]));
+        setFollowMsg(`✓ ${name} added to your stocks!`);
       } else {
-        setError(data.error || "Invalid username or password.");
+        setFollowMsg(`${name} is already in your stocks.`);
       }
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      setFollowMsg("Something went wrong. Please try again.");
     }
+
+    setTimeout(() => setFollowMsg(""), 3000);
   };
 
   const totalGainers = stocks.filter((s) => s.change_in_price >= 0).length;
@@ -256,10 +135,21 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* View monthly data button */}
-        <Link to="/stockChart">
-          <button>View Monthly Data</button>
+        {/* My Followed Stocks button */}
+        <Link to="/mystocks">
+          <button className="btn btn-light mb-3">📊 My Followed Stocks</button>
         </Link>
+
+        {/* Follow feedback message */}
+        {followMsg && (
+          <div
+            className={`alert py-2 mb-3 ${
+              followMsg.startsWith("✓") ? "alert-success" : "alert-warning"
+            }`}
+          >
+            {followMsg}
+          </div>
+        )}
 
         {/* Search Bar */}
         <div className="row mb-4">
@@ -303,6 +193,7 @@ function Dashboard() {
                       <th>Price</th>
                       <th>Change</th>
                       <th>Volume</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -326,14 +217,30 @@ function Dashboard() {
                             {Math.abs(stock.change_in_price).toFixed(2)}
                           </td>
                           <td>{stock.volume.toLocaleString()}</td>
-                          <button onClick={() => sendStock(stock.name)}>
-                            Outlined
-                          </button>
+                          <td>
+                            <button
+                              className="btn btn-sm"
+                              style={{
+                                backgroundColor: following.has(stock.name)
+                                  ? "#a8d5a2"
+                                  : "#2d5e12",
+                                color: "#fff",
+                                border: "none",
+                                minWidth: "100px",
+                              }}
+                              onClick={() => sendStock(stock.name)}
+                              disabled={following.has(stock.name)}
+                            >
+                              {following.has(stock.name)
+                                ? "✓ Following"
+                                : "+ Follow"}
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="text-center text-muted py-4">
+                        <td colSpan={5} className="text-center text-muted py-4">
                           No stocks found for "<strong>{search}</strong>"
                         </td>
                       </tr>

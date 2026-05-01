@@ -209,39 +209,64 @@ def add_stocks():
 
     
 
-@app.route("/api/userStocks", methods=["GET", "POST"])
+@app.route("/api/userStocks", methods=["GET"])
 def userStocks():
     email = session.get('username')
+    if not email:
+        return {"error": "Not logged in"}, 401
+        
     userTable = (
-                supabase.table("users")
-                .select("id")
-                .eq("email", email)
-                .execute()
-            )
-    userid = userTable.data[0]['id']
-    response = (supabase.table("tracked_stocks")
-        .select("ticker")
-        .eq("user_id",userid)
+        supabase.table("users")
+        .select("id")
+        .eq("email", email)
         .execute()
     )
-    user_options = pd.DataFrame(response.data)
-    tickers = []
-    for ticker in user_options['ticker']:
-        tickers.append(ticker)
-    temp = yf.download(tickers, period='1mo', auto_adjust=False)
-    temp = temp.drop("Open", axis=1)
-    temp = temp.drop("Volume", axis=1)
-    temp = temp.drop("Low", axis=1)
-    temp = temp.drop("High", axis=1)
-    temp = temp.drop("Adj Close", axis=1)
-    temp = temp.dropna()
-    temp = temp.rename(columns={
-        "Date": "history",
-    "Ticker":    "ticker",
-    "Close":     "price",
-    })
-    print(temp)
-    return {"stocks": temp.to_json()}, 200
+    userid = userTable.data[0]['id']
+    response = (
+        supabase.table("tracked_stocks")
+        .select("ticker")
+        .eq("user_id", userid)
+        .execute()
+    )
+    tickers = [row['ticker'] for row in response.data]
+    return {"tickers": tickers}, 200
+
+@app.route("/api/stock/<ticker>")
+def get_stock_history(ticker):
+    import datetime
+    
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period="1mo")
+    
+    if hist.empty:
+        return {"error": "No data found"}, 404
+    
+    history = []
+    for date, row in hist.iterrows():
+        history.append({
+            "date": date.strftime("%Y-%m-%d"),
+            "price": round(float(row["Close"]), 2)
+        })
+    
+    return {"history": history}, 200
+
+@app.route("/api/unfollow", methods=["POST"])
+def unfollow_stock():
+    data = request.get_json()
+    email = session.get('username')
+    ticker = data.get("ticker")
+    userTable = (
+        supabase.table("users")
+        .select("id")
+        .eq("email", email)
+        .execute()
+    )
+    userid = userTable.data[0]['id']
+    supabase.table("tracked_stocks").delete()\
+        .eq("user_id", userid)\
+        .eq("ticker", ticker)\
+        .execute()
+    return {"success": True}, 200
 
 @app.route("/logout")
 def logout():
